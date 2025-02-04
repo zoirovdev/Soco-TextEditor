@@ -50,17 +50,20 @@ int main(void){
 			case NORMAL:
 				if(ch == 'i'){
 					mode = INSERT;
-				}	
+				}					
 				break;
-			case INSERT:
+			case INSERT:{
+				keypad(stdscr, FALSE);
 				if(ch == BACKSPACE){
 					getyx(stdscr, y, x);
 					move(y, x-1);
 					delch();
 				} else if(ch == ESCAPE){
 					mode = NORMAL;
+					keypad(stdscr, TRUE);
 				} else addch(ch);
 				break;
+			}
 		}
 		getyx(stdscr, y, x);
 	}
