@@ -63,10 +63,12 @@ int main(void){
 	
 	int ch = 0;
 
-	int x = 0,y = 0;
+	size_t x = 0,y = 0;
 	while(ch != ctrl('q') && QUIT != 1){
 		refresh();
 		mvprintw(row-1, 0, stringify_mode());
+		mvprintw(row-1, col-7, "%.3zu:%.3zu", buffer.row_index, buffer.cur_pos);
+
 
 		for(size_t i=0; i<=buffer.row_s; i++){
 			mvprintw(i, 0, buffer.rows[i].contents);
@@ -77,23 +79,38 @@ int main(void){
 		ch = getch();
 		switch(mode){
 			case NORMAL:
-				if(x > buffer.rows[buffer.row_index].size-1) x = buffer.rows[buffer.row_index].size-1;	
+				x = buffer.cur_pos;
+				y = buffer.row_index;
 				if(ch == 'i'){
 					mode = INSERT;
 				}else if(ch == 'h'){
-					move(y, x-1);
-					buffer.cur_pos -= 1;
+					if(buffer.cur_pos != 0){
+						buffer.cur_pos -= 1;
+						move(y, x-1);
+					}
 				}else if(ch == 'l'){
-					move(y, x+1);
-					buffer.cur_pos += 1;
+					if(buffer.rows[buffer.row_index].size > 0){
+						if(x >= buffer.rows[buffer.row_index].size-1) {
+							x = buffer.rows[buffer.row_index].size-1;	
+						} else {
+							buffer.cur_pos += 1;
+						}
+						move(y, x+1);
+					}
 				}else if(ch == 'k'){
-					if(x > buffer.rows[buffer.row_index-1].size-1) x = buffer.rows[buffer.row_index].size-1;	
-					move(y-1, x);
-					buffer.row_index--;
+					if(y != 0){
+						if(x >= buffer.rows[buffer.row_index--].size-1) x = buffer.rows[buffer.row_index].size-1;
+						move(y-1, x);
+					}
 				}else if(ch == 'j'){
-					if(x > buffer.rows[buffer.row_index-1].size-1) x = buffer.rows[buffer.row_index].size-1;	
-					move(y+1, x);	
-					buffer.row_index++;			
+					if(y >= buffer.row_s)  
+						y = buffer.row_s;
+						buffer.cur_pos = y;
+					else { 
+						y++; 
+						if(x > buffer.rows[buffer.row_index++].size-1) x = buffer.rows[buffer.row_index].size-1;	
+					}
+					move(y, x);	
 				}else if(ch == ctrl('s')){
 					FILE *file = fopen("put.txt", "w");
 					for(size_t i=0; i<=buffer.row_s; i++){
@@ -124,7 +141,7 @@ int main(void){
 					mode = NORMAL;
 					keypad(stdscr, TRUE);
 				} else if(ch == ENTER){
-					buffer.rows[buffer.row_index].contents[buffer.rows[buffer.row_index].size++] = '\n';
+					buffer.rows[buffer.row_index].contents[buffer.rows[buffer.row_index].size] = '\n';
 					buffer.row_index++;
 					buffer.row_s++;
 					buffer.cur_pos = 0;
