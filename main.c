@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
+#include <string.h>
 
 #define ctrl(x) ((x) & 0x1f)
 #define BACKSPACE  127
@@ -46,14 +47,13 @@ char *stringify_mode(){
 
 #define MAX_STRING_SIZE 1024
 
-void shift_array(char *dest, size_t *dest_s, char *str, size_t *str_s, size_t index){
+void shift_str(char *dest, size_t *dest_s, char *str, size_t *str_s, size_t index){
 	assert(index < MAX_STRING_SIZE);
 	*dest_s = (*str_s - index);
 	for(size_t i=index; i<*str_s; i++){
 		dest[i % index] = str[i];
 	}
 	*str_s = index+1;
-	str[(*str_s)-1] = '\n';
 }
 
 int main(void){
@@ -137,7 +137,10 @@ int main(void){
 					mode = NORMAL;
 					keypad(stdscr, TRUE);
 				} else if(ch == ENTER){
-					shift_array(buffer.rows[buffer.row_index+1].contents, &buffer.rows[buffer.row_index+1].size, buffer.rows[buffer.row_index].contents, &buffer.rows[buffer.row_index].size, buffer.cur_pos);
+					Row *cur = &buffer.rows[buffer.row_index];
+					Row *next = &buffer.rows[buffer.row_index+1];
+					shift_str(next->contents, &next->size, cur->contents, &cur->size, buffer.cur_pos);
+					cur->contents[cur->size-1] = '\n';
 					buffer.row_index++;
 					buffer.row_s++;
 					buffer.cur_pos = 0;
