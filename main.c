@@ -2,6 +2,7 @@
 #include <curses.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <assert.h>
 
 #define ctrl(x) ((x) & 0x1f)
 #define BACKSPACE  127
@@ -43,6 +44,18 @@ char *stringify_mode(){
 	}
 }
 
+#define MAX_STRING_SIZE 1024
+
+void shift_array(char *dest, size_t *dest_s, char *str, size_t *str_s, size_t index){
+	assert(index < MAX_STRING_SIZE);
+	*dest_s = (*str_s - index);
+	for(size_t i=index; i<*str_s; i++){
+		dest[i % index] = str[i];
+	}
+	*str_s = index+1;
+	str[(*str_s)-1] = '\n';
+}
+
 int main(void){
 	initscr();
 	raw();
@@ -51,7 +64,7 @@ int main(void){
 
 	Buffer buffer = {0};
 	for(size_t i=0; i<1024; i++){
-		buffer.rows[i].contents = calloc(1024, sizeof(char));
+		buffer.rows[i].contents = calloc(MAX_STRING_SIZE, sizeof(char));
 	}
 
 	int row, col;
@@ -65,9 +78,11 @@ int main(void){
 
 	size_t x = 0,y = 0;
 	while(ch != ctrl('q') && QUIT != 1){
+		clear();
+		getmaxyx(stdscr, row, col);
 		refresh();
 		mvprintw(row-1, 0, stringify_mode());
-		mvprintw(row-1, col-7, "%.3zu:%.3zu", buffer.row_index, buffer.cur_pos);
+		mvprintw(row-1, col/2, "%.3zu:%.3zu", buffer.row_index, buffer.cur_pos);
 
 
 		for(size_t i=0; i<=buffer.row_s; i++){
@@ -79,38 +94,16 @@ int main(void){
 		ch = getch();
 		switch(mode){
 			case NORMAL:
-				x = buffer.cur_pos;
-				y = buffer.row_index;
 				if(ch == 'i'){
 					mode = INSERT;
 				}else if(ch == 'h'){
-					if(buffer.cur_pos != 0){
-						buffer.cur_pos -= 1;
-						move(y, x-1);
-					}
+					if(buffer.cur_pos != 0) buffer.cur_pos--;
 				}else if(ch == 'l'){
-					if(buffer.rows[buffer.row_index].size > 0){
-						if(x >= buffer.rows[buffer.row_index].size-1) {
-							x = buffer.rows[buffer.row_index].size-1;	
-						} else {
-							buffer.cur_pos += 1;
-						}
-						move(y, x+1);
-					}
+					if(buffer.cur_pos < buffer.rows[buffer.row_index].size) buffer.cur_pos++;
 				}else if(ch == 'k'){
-					if(y != 0){
-						if(x >= buffer.rows[buffer.row_index--].size-1) x = buffer.rows[buffer.row_index].size-1;
-						move(y-1, x);
-					}
+					if(buffer.row_index != 0) buffer.row_index--;
 				}else if(ch == 'j'){
-					if(y >= buffer.row_s)  
-						y = buffer.row_s;
-						buffer.cur_pos = y;
-					else { 
-						y++; 
-						if(x > buffer.rows[buffer.row_index++].size-1) x = buffer.rows[buffer.row_index].size-1;	
-					}
-					move(y, x);	
+					if(buffer.row_index < buffer.row_s) buffer.row_index++;
 				}else if(ch == ctrl('s')){
 					FILE *file = fopen("put.txt", "w");
 					for(size_t i=0; i<=buffer.row_s; i++){
@@ -119,7 +112,10 @@ int main(void){
 					fclose(file);
 					QUIT = 1;
 				}
-
+				if(buffer.cur_pos > buffer.rows[buffer.row_index].size) buffer.cur_pos = buffer.rows[buffer.row_index].size;
+				x = buffer.cur_pos;
+				y = buffer.row_index;
+				move(y, x);
 				break;
 			case INSERT:{
 				keypad(stdscr, FALSE);
@@ -141,7 +137,7 @@ int main(void){
 					mode = NORMAL;
 					keypad(stdscr, TRUE);
 				} else if(ch == ENTER){
-					buffer.rows[buffer.row_index].contents[buffer.rows[buffer.row_index].size] = '\n';
+					shift_array(buffer.rows[buffer.row_index+1].contents, &buffer.rows[buffer.row_index+1].size, buffer.rows[buffer.row_index].contents, &buffer.rows[buffer.row_index].size, buffer.cur_pos);
 					buffer.row_index++;
 					buffer.row_s++;
 					buffer.cur_pos = 0;
