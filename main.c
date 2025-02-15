@@ -21,9 +21,10 @@ typedef struct {
 	char* contents;
 } Row;
 
+#define MAX_ROWS 1025
 typedef struct {
 	char *buf;
-	Row rows[1024];
+	Row rows[MAX_ROWS];
 	size_t row_index;
 	size_t cur_pos;
 	size_t row_s;
@@ -33,6 +34,7 @@ typedef struct {
 
 Mode mode = NORMAL;
 int QUIT = 0;
+
 
 char *stringify_mode(){
 	switch(mode){
@@ -45,13 +47,29 @@ char *stringify_mode(){
 	}
 }
 
-#define MAX_STRING_SIZE 1024
+#define MAX_STRING_SIZE 1025
+
+void shift_rows(Buffer *buf, size_t index){
+	assert(buf->row_s + 1 < MAX_ROWS);
+	Row new_rows[MAX_ROWS] = {0};
+	memcpy(new_rows, buf->rows, sizeof(Row)*buf->row_s);
+	for(size_t i=index; i<buf->row_s; i++){
+		new_rows[i+1] = buf->rows[i];
+	}
+
+	buf->row_s++;
+	for(size_t i=index; i<buf->row_s; i++){
+		buf_rows[i] = new_rows[i];
+	}
+
+}
 
 void shift_str(char *dest, size_t *dest_s, char *str, size_t *str_s, size_t index){
 	assert(index < MAX_STRING_SIZE);
 	*dest_s = (*str_s - index);
 	for(size_t i=index; i<*str_s; i++){
 		dest[i % index] = str[i];
+		str[i] = '\0';
 	}
 	*str_s = index+1;
 }
@@ -108,6 +126,7 @@ int main(void){
 					FILE *file = fopen("put.txt", "w");
 					for(size_t i=0; i<=buffer.row_s; i++){
 						fwrite(buffer.rows[i].contents, buffer.rows[i].size, 1, file);
+						fwrite("\n", sizeof("\n")-1, 1, file);
 					}
 					fclose(file);
 					QUIT = 1;
@@ -139,8 +158,9 @@ int main(void){
 				} else if(ch == ENTER){
 					Row *cur = &buffer.rows[buffer.row_index];
 					Row *next = &buffer.rows[buffer.row_index+1];
+					shift_rows(&buffer, buffer.row_index);
 					shift_str(next->contents, &next->size, cur->contents, &cur->size, buffer.cur_pos);
-					cur->contents[cur->size-1] = '\n';
+					//cur->contents[cur->size] = ' ';
 					buffer.row_index++;
 					buffer.row_s++;
 					buffer.cur_pos = 0;
